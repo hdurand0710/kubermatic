@@ -226,6 +226,12 @@ func main() {
 				APIVersionPrefix:   "KubeVirtV1",
 			},
 			{
+				ResourceName:       "NetworkAttachmentDefinition",
+				ImportAlias:        "nadv1",
+				ResourceImportPath: "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1",
+				APIVersionPrefix:   "NadV1",
+			},
+			{
 				ResourceName:     "Preset",
 				ImportAlias:      "kubermaticv1",
 				APIVersionPrefix: "KubermaticV1",

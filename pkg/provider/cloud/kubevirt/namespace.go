@@ -30,18 +30,34 @@ import (
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NamespaceCreator(name string) reconciling.NamedNamespaceCreatorGetter {
+const (
+	vlanAnnotationKey = "kubermatic.k8c.io/vlan"
+	cidrAnnotationKey = "kubermatic.k8c.io/cidr"
+)
+
+func NamespaceCreator(name string, cidr, vlan *string) reconciling.NamedNamespaceCreatorGetter {
 	return func() (string, reconciling.NamespaceCreator) {
 		return name, func(n *corev1.Namespace) (*corev1.Namespace, error) {
+			if cidr != nil || vlan != nil {
+				if n.Annotations == nil {
+					n.Annotations = map[string]string{}
+				}
+				if vlan != nil {
+					n.Annotations[vlanAnnotationKey] = *vlan
+				}
+				if cidr != nil {
+					n.Annotations[cidrAnnotationKey] = *cidr
+				}
+			}
 			return n, nil
 		}
 	}
 }
 
 // reconcileNamespace reconciles a dedicated namespace in the underlying KubeVirt cluster.
-func reconcileNamespace(ctx context.Context, name string, cluster *kubermaticv1.Cluster, update provider.ClusterUpdater, client ctrlruntimeclient.Client) (*kubermaticv1.Cluster, error) {
+func reconcileNamespace(ctx context.Context, name string, cidr, vlan *string, cluster *kubermaticv1.Cluster, update provider.ClusterUpdater, client ctrlruntimeclient.Client) (*kubermaticv1.Cluster, error) {
 	creators := []reconciling.NamedNamespaceCreatorGetter{
-		NamespaceCreator(name),
+		NamespaceCreator(name, cidr, vlan),
 	}
 
 	if err := reconciling.ReconcileNamespaces(ctx, creators, "", client); err != nil {

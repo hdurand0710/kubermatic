@@ -16,17 +16,21 @@ export CGO_ENABLED ?= 0
 export GOFLAGS ?= -mod=readonly -trimpath
 export GO111MODULE = on
 export KUBERMATIC_EDITION ?= ce
-DOCKER_REPO ?= quay.io/kubermatic
+DOCKER_REPO ?= quay.io/hdurand0710
 REPO = $(DOCKER_REPO)/kubermatic$(shell [ "$(KUBERMATIC_EDITION)" != "ce" ] && echo "-$(KUBERMATIC_EDITION)" )
 CMD ?= $(filter-out OWNERS nodeport-proxy kubeletdnat-controller, $(notdir $(wildcard ./cmd/*)))
 GOBUILDFLAGS ?= -v
 GOOS ?= $(shell go env GOOS)
+#HELENE
+#GOOS=linux
 GIT_VERSION = $(shell git describe --tags --always)
 TAGS ?= $(GIT_VERSION)
-DOCKERTAGS = $(TAGS) latestbuild
+DOCKERTAGS = $(TAGS) latestbuild ad78c65ddbbf557a23387c2b46a2f840549df710
 DOCKER_BUILD_FLAG += $(foreach tag, $(DOCKERTAGS), -t $(REPO):$(tag))
 KUBERMATICCOMMIT ?= $(shell git log -1 --format=%H)
 KUBERMATICDOCKERTAG ?= $(KUBERMATICCOMMIT)
+# HELENE
+#KUBERMATICDOCKERTAG=ad78c65ddbbf557a23387c2b46a2f840549df710
 UIDOCKERTAG ?= NA
 LDFLAGS += -extldflags '-static' \
   -X k8c.io/kubermatic/v2/pkg/version/kubermatic.gitVersion=$(GIT_VERSION) \

@@ -125,6 +125,20 @@ spec:
           # 'Default' or 'None'. Defaults to "ClusterFirst". DNS parameters given in DNSConfig will be merged with the
           # policy selected with DNSPolicy.
           dnsPolicy: ""
+          # VlanIsolation contains the necessary parameters for KubeVirt network isolation.
+          vlanIsolation:
+            # VlanNumberOfAddresses represents the number of addresses (size) of the Vlan CIDRs (defaults to 256 = /24 CIDRs)
+            numberOfAddressesPerVlan: 0
+            # VlanRanges and NumberOfAddressesPerVlan are used if we want to use the network isolation feature on a KubeVirt cluster (defaults to ["172.24.0.0/16"]).
+            # All KubeVirt VirtualMachines from the same cluster will be attached to the same VLAN, on a additional interface.
+            # Each cluster Vlan CIDR is computed by splitting each VlanRange into sub-ranges and taking the first one available.
+            # For example with VlanRanges=172.24.0.0/16 and NumberOfAddressesPerVlan=256,
+            # 172.24.0.0/16 will be sliced into:
+            # - 172.24.0.0/24 -> Vlan for cluster #1
+            # - 172.24.1.0/24 -> Vlan for cluster #2
+            # ...
+            # - 172.25.255.0/24 -> Vlan for last cluster
+            vlanRanges: null
         # Nutanix is experimental and unsupported
         nutanix:
           # Optional: AllowInsecure allows to disable the TLS certificate check against the endpoint (defaults to false)

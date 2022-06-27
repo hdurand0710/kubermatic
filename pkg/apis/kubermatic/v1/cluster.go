@@ -1196,11 +1196,24 @@ type KubevirtCloudSpec struct {
 
 	Kubeconfig    string `json:"kubeconfig,omitempty"`
 	CSIKubeconfig string `json:"csiKubeconfig,omitempty"`
+
+	// VlanIsolation enables the vlan isolation for each cluster.
+	VlanIsolation *VlanIsolation `json:"vlanIsolation,omitempty"`
+
 	// PreAllocatedDataVolumes holds list of preallocated DataVolumes which can be used as reference for DataVolume cloning.
 	PreAllocatedDataVolumes []PreAllocatedDataVolume `json:"preAllocatedDataVolumes,omitempty"`
 	// InfraStorageClasses is a list of storage classes from KubeVirt infra cluster that are used for
 	// initialization of user cluster storage classes by the CSI driver kubevirt (hot pluggable disks)
 	InfraStorageClasses []string `json:"infraStorageClasses,omitempty"`
+}
+
+type VlanIsolation struct {
+	// Enabled enables the vlan isolation for the cluster
+	Enabled bool `json:"enabled,omitempty"`
+	// NetworkName is the NetworkAttachmentDefinition name
+	// Only a name as the NetworkAttachmentDefition content is computed in the pkg/provider/cloud/kubevirt/provider.go ReconcileCluster loop.
+	NetworkName string `json:"networkName,omitempty"`
+	// Could be extended in the future with a list of additional NetworkAttachment
 }
 
 type PreAllocatedDataVolume struct {

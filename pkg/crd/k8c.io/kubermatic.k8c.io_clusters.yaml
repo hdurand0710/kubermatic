@@ -724,6 +724,21 @@ spec:
                           - url
                           type: object
                         type: array
+                      vlanIsolation:
+                        description: VlanIsolation enables the vlan isolation for
+                          each cluster.
+                        properties:
+                          enabled:
+                            description: Enabled enables the vlan isolation for the
+                              cluster
+                            type: boolean
+                          networkName:
+                            description: NetworkName is the NetworkAttachmentDefinition
+                              name Only a name as the NetworkAttachmentDefition content
+                              is computed in the pkg/provider/cloud/kubevirt/provider.go
+                              ReconcileCluster loop.
+                            type: string
+                        type: object
                     type: object
                   nutanix:
                     description: NutanixCloudSpec specifies the access data to Nutanix.

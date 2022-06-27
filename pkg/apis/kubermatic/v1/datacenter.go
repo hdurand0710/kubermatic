@@ -585,6 +585,29 @@ type DatacenterSpecKubevirt struct {
 	// DNSConfig represents the DNS parameters of a pod. Parameters specified here will be merged to the generated DNS
 	// configuration based on DNSPolicy.
 	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty"`
+
+	// VlanIsolation contains the necessary parameters for KubeVirt network isolation.
+	VlanIsolation KubeVirtVlanIsolation `json:"vlanIsolation"`
+}
+
+type KubeVirtVlanIsolation struct {
+	// +kubebuilder:default={"172.24.0.0/16"}
+
+	// VlanRanges and NumberOfAddressesPerVlan are used if we want to use the network isolation feature on a KubeVirt cluster (defaults to ["172.24.0.0/16"]).
+	// All KubeVirt VirtualMachines from the same cluster will be attached to the same VLAN, on a additional interface.
+	// Each cluster Vlan CIDR is computed by splitting each VlanRange into sub-ranges and taking the first one available.
+	// For example with VlanRanges=172.24.0.0/16 and NumberOfAddressesPerVlan=256,
+	// 172.24.0.0/16 will be sliced into:
+	// - 172.24.0.0/24 -> Vlan for cluster #1
+	// - 172.24.1.0/24 -> Vlan for cluster #2
+	// ...
+	// - 172.25.255.0/24 -> Vlan for last cluster
+	VlanRanges []CIDR `json:"vlanRanges,omitempty"`
+
+	// +kubebuilder:default=256
+
+	// VlanNumberOfAddresses represents the number of addresses (size) of the Vlan CIDRs (defaults to 256 = /24 CIDRs)
+	NumberOfAddressesPerVlan uint32 `json:"numberOfAddressesPerVlan,omitempty"`
 }
 
 // DatacenterSpecNutanix describes a Nutanix datacenter.

@@ -60,6 +60,9 @@ if [[ "$FEATURE_GATES" =~ "OIDCKubeCfgEndpoint=true" ]]; then
   API_EXTRA_ARGS="$API_EXTRA_ARGS -oidc-issuer-cookie-hash-key=$OIDC_ISSUER_COOKIE_HASH_KEY"
 fi
 
+#HELENE
+SERVICE_ACCOUNT_SIGNING_KEY=zDGbKSskc7oTPzgSBzetqi3DlTdOh6Dy
+
 echodate "Starting API..."
 set -x
 ./_build/kubermatic-api $API_EXTRA_ARGS \
@@ -69,7 +72,8 @@ set -x
   -internal-address=127.0.0.1:18085 \
   -prometheus-url=http://localhost:9090 \
   -address=127.0.0.1:8080 \
-  -oidc-url=https://dev.kubermatic.io/dex \
+  -oidc-url=https://helene.lab.kubermatic.io/dex \
+  -oidc-skip-tls-verify=true \
   -oidc-authenticator-client-id=kubermatic \
   -feature-gates=KonnectivityService=true \
   -service-account-signing-key="$SERVICE_ACCOUNT_SIGNING_KEY" \

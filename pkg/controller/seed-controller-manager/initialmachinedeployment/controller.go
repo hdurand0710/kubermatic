@@ -34,6 +34,7 @@ import (
 	machineresource "k8c.io/kubermatic/v2/pkg/resources/machine"
 	"k8c.io/kubermatic/v2/pkg/version/kubermatic"
 
+	kubermaticlog "k8c.io/kubermatic/v2/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
@@ -165,9 +166,15 @@ func (r *Reconciler) reconcile(ctx context.Context, cluster *kubermaticv1.Cluste
 
 func (r *Reconciler) parseNodeDeployment(cluster *kubermaticv1.Cluster, request string) (*apiv1.NodeDeployment, error) {
 	var nodeDeployment *apiv1.NodeDeployment
+	log := kubermaticlog.Logger
+	log.Errorf("HELENE -------------------------------------------------------------------------------------------------------------------------------")
+	log.Errorf("HELENE request %s", request)
+
 	if err := json.Unmarshal([]byte(request), &nodeDeployment); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal initial MachineDeployment request: %w", err)
 	}
+
+	log.Errorf("HELENE nodeDeployment %v", nodeDeployment.Spec.Template.Cloud.Kubevirt)
 
 	nodeDeployment, err := machineresource.Validate(nodeDeployment, cluster.Spec.Version.Semver())
 	if err != nil {
@@ -182,6 +189,10 @@ func (r *Reconciler) createInitialMachineDeployment(ctx context.Context, nodeDep
 	if err != nil {
 		return fmt.Errorf("failed to get target datacenter: %w", err)
 	}
+
+	log := kubermaticlog.Logger
+	log.Errorf("HELENE DURAND -------------------------------------------------------------------------------------------------------------------------------")
+	log.Errorf("HELENE DURAND nodeDeployment %v", nodeDeployment.Spec.Template.Cloud.Kubevirt)
 
 	sshKeys, err := r.getSSHKeys(ctx, cluster)
 	if err != nil {

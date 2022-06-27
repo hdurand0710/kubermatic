@@ -21,7 +21,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strconv"
 
+	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -30,7 +32,10 @@ import (
 	"k8c.io/kubermatic/v2/pkg/provider"
 	"k8c.io/kubermatic/v2/pkg/resources"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,16 +44,27 @@ import (
 const (
 	// FinalizerNamespace will ensure the deletion of the dedicated namespace.
 	FinalizerNamespace = "kubermatic.k8c.io/cleanup-kubevirt-namespace"
+	// bridgeName is the OVS bridge name that should exists in each KubeVirt node on the infra cluster.
+	bridgeName = "kubevirt"
+	// cniVersion is the SemVer of the CNI specification.
+	cniVersion                     = "0.4.0"
+	defaultCIDRBlock               = "172.24.0.0/16"
+	defaultNumberOfAddressePerVlan = 256
 )
 
 type kubevirt struct {
 	secretKeySelector provider.SecretKeySelectorValueFunc
+	dc                kubermaticv1.DatacenterSpecKubevirt
 }
 
-func NewCloudProvider(secretKeyGetter provider.SecretKeySelectorValueFunc) provider.CloudProvider {
-	return &kubevirt{
-		secretKeySelector: secretKeyGetter,
+func NewCloudProvider(dc *kubermaticv1.Datacenter, secretKeyGetter provider.SecretKeySelectorValueFunc) (provider.CloudProvider, error) {
+	if dc.Spec.Kubevirt == nil {
+		return nil, errors.New("datacenter is not an KubeVirt datacenter")
 	}
+	return &kubevirt{
+		dc:                *dc.Spec.Kubevirt,
+		secretKeySelector: secretKeyGetter,
+	}, nil
 }
 
 var _ provider.ReconcilingCloudProvider = &kubevirt{}
@@ -98,7 +114,7 @@ func (k *kubevirt) reconcileCluster(ctx context.Context, cluster *kubermaticv1.C
 		return cluster, err
 	}
 
-	cluster, err = reconcileNamespace(ctx, cluster.Status.NamespaceName, cluster, update, client)
+	cluster, err = reconcileNamespace(ctx, cluster.Status.NamespaceName, nil, nil, cluster, update, client)
 	if err != nil {
 		return cluster, err
 	}
@@ -112,9 +128,143 @@ func (k *kubevirt) reconcileCluster(ctx context.Context, cluster *kubermaticv1.C
 	if err != nil {
 		return cluster, err
 	}
+
 	err = reconcilePreAllocatedDataVolumes(ctx, cluster, client)
+	if err != nil {
+		return cluster, err
+	}
+
+	// Reconcile NetworkAttachmentDefinition only if option is enabled in Cluster
+	// VlanIsolationEnabled is immutable, it's not possible to go from !=nil to nil (or true to false), then there is intentionally no cleanup
+	if cluster.Spec.Cloud.Kubevirt.VlanIsolation != nil && cluster.Spec.Cloud.Kubevirt.VlanIsolation.Enabled {
+		allNs := &corev1.NamespaceList{}
+		selector := fields.OneTermNotEqualSelector("metadata.name", cluster.Status.NamespaceName) // excludes cluster ns itself
+		options := &ctrlruntimeclient.ListOptions{FieldSelector: selector}
+		if err := client.List(ctx, allNs, options); err != nil {
+			return nil, err
+		}
+
+		vlan := k.findAvailableVlan(allNs)
+		cidr, err := k.findAvailableCidr(allNs)
+		if err != nil {
+			return cluster, err
+		}
+
+		config := fmt.Sprintf(`
+		{
+			"cniVersion": "%s",
+			"type": "ovs", 
+			"bridge": "%s", 
+			"vlan": %s, 
+			"ipam": {
+				"type": "whereabouts", 
+				"range": "%s"
+			}
+		}
+		`, cniVersion, bridgeName, vlan, cidr)
+
+		nad := &nadv1.NetworkAttachmentDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cluster.Spec.Cloud.Kubevirt.VlanIsolation.NetworkName,
+				Namespace: cluster.Status.NamespaceName,
+				Annotations: map[string]string{
+					"k8s.v1.cni.cncf.io/resourceName": fmt.Sprintf("ovs-cni.network.kubevirt.io/%s", bridgeName),
+				},
+			},
+			Spec: nadv1.NetworkAttachmentDefinitionSpec{
+				Config: config,
+			},
+		}
+		err = reconcileNetworkAttachmentDefinition(ctx, nad, cluster.Status.NamespaceName, client)
+		if err != nil {
+			return cluster, err
+		}
+
+		cluster, err = reconcileNamespace(ctx, cluster.Status.NamespaceName, &cidr, &vlan, cluster, update, client)
+	}
 
 	return cluster, err
+}
+
+// findAvailableVlan iterates over all namespaces in the KubeVirt infra cluster to get the annotation:
+// // - vlanAnnotationKey
+// Finds the first available and returns it.
+func (k *kubevirt) findAvailableVlan(allNs *corev1.NamespaceList) string {
+	existingVlans := getExistingAnnotationValues(allNs, vlanAnnotationKey)
+
+	// Find first available
+	i := 1
+	for {
+		v := strconv.Itoa(i)
+		if _, ok := existingVlans[v]; !ok {
+			return v
+		}
+		i++
+	}
+}
+
+// findAvailableCidr iterates over all namespaces in the KubeVirt infra cluster to get the annotation:
+// - cidrAnnotationKey
+// Finds the first available and returns it.
+func (k *kubevirt) findAvailableCidr(allNs *corev1.NamespaceList) (string, error) {
+	existingCidrs := getExistingAnnotationValues(allNs, cidrAnnotationKey)
+
+	// cidr
+	// All possible ranges from DC settings
+	ranges := k.possibleRanges()
+	numberOfAddressesPerVlan := numberOfAddressesPerVlan(k.dc)
+
+	// split them into all possible vlan sub ranges
+	vlanCIDRs, err := ranges.SplitByNumberOfAddresses(numberOfAddressesPerVlan)
+	if err != nil {
+		return "", err
+	}
+
+	// Find the first vlan CIDR available
+	var cidr string
+	for _, c := range vlanCIDRs.CIDRBlocks {
+		if _, ok := existingCidrs[c]; !ok {
+			return c, nil
+		}
+	}
+
+	return cidr, nil
+}
+
+func (k *kubevirt) possibleRanges() *kubermaticv1.NetworkRanges {
+	ranges := kubermaticv1.NetworkRanges{}
+	ranges.CIDRBlocks = make([]string, 0)
+	for _, r := range k.dc.VlanIsolation.VlanRanges {
+		ranges.CIDRBlocks = append(ranges.CIDRBlocks, string(r))
+	}
+
+	// Default values, should not be used, as their should be a default value in the Seed CR
+	if len(ranges.CIDRBlocks) == 0 {
+		ranges.CIDRBlocks = append(ranges.CIDRBlocks, defaultCIDRBlock)
+	}
+
+	return &ranges
+}
+
+func getExistingAnnotationValues(allNs *corev1.NamespaceList, annotationKey string) map[string]bool {
+	values := map[string]bool{}
+
+	for _, ns := range allNs.Items {
+		if vlan, ok := ns.Annotations[annotationKey]; ok {
+			values[vlan] = true
+		}
+	}
+	return values
+}
+
+func numberOfAddressesPerVlan(dc kubermaticv1.DatacenterSpecKubevirt) (nb uint32) {
+	nb = dc.VlanIsolation.NumberOfAddressesPerVlan
+
+	// Default values, should not be used, as their should be a default value in the Seed CR
+	if nb == 0 {
+		nb = defaultNumberOfAddressePerVlan
+	}
+	return
 }
 
 func (k *kubevirt) CleanUpCloudProvider(ctx context.Context, cluster *kubermaticv1.Cluster, update provider.ClusterUpdater) (*kubermaticv1.Cluster, error) {
@@ -136,6 +286,11 @@ func (k *kubevirt) CleanUpCloudProvider(ctx context.Context, cluster *kubermatic
 }
 
 func (k *kubevirt) ValidateCloudSpecUpdate(ctx context.Context, oldSpec kubermaticv1.CloudSpec, newSpec kubermaticv1.CloudSpec) error {
+	// Immutable fields
+	if oldSpec.Kubevirt.VlanIsolation != nil && oldSpec.Kubevirt.VlanIsolation != newSpec.Kubevirt.VlanIsolation {
+		return fmt.Errorf("updating KubeVirt Vlan Isolation (was %v, updated to %v)", oldSpec.Kubevirt.VlanIsolation, newSpec.Kubevirt.VlanIsolation)
+	}
+
 	return nil
 }
 
@@ -158,6 +313,9 @@ func (k *kubevirt) GetClientWithRestConfigForCluster(cluster *kubermaticv1.Clust
 		return nil, nil, err
 	}
 	if err = cdiv1beta1.AddToScheme(client.Scheme()); err != nil {
+		return nil, nil, err
+	}
+	if err = nadv1.AddToScheme(client.Scheme()); err != nil {
 		return nil, nil, err
 	}
 

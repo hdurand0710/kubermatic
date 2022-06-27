@@ -44,6 +44,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hetznercloud/hcloud-go v1.33.2
 	github.com/imdario/mergo v0.3.12
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
 	github.com/kubermatic/grafanasdk v0.9.12
 	github.com/kubermatic/machine-controller v1.51.0
 	github.com/minio/minio-go/v7 v7.0.26
@@ -81,7 +82,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8c.io/kubeone v1.4.1-0.20220531113023-c1f699725c2a // kubeone pkg: "k8c.io/kubeone/pkg/fail" is not released yet, hence importing @latestcommit
-	k8c.io/operating-system-manager v0.4.3
+	k8c.io/operating-system-manager v0.4.4
 	k8s.io/api v0.24.0
 	k8s.io/apiextensions-apiserver v0.24.0
 	k8s.io/apimachinery v0.24.0
@@ -297,3 +298,5 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 )
+
+replace github.com/kubermatic/machine-controller => /Users/helenedurand/go/src/github.com/kubermatic/machine-controller

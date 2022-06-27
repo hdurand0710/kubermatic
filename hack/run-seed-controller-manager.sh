@@ -80,5 +80,8 @@ set -x
   -log-format=Console \
   -max-parallel-reconcile=10 \
   -pprof-listen-address=":${PPROF_PORT}" \
+  -machine-controller-image-repository=quay.io/hdurand0710/machine-controller \
+  -machine-controller-image-tag=b30affc4562c11e3ea3aa6dc3c1a39a7df8ddf7c-dirty \
+  -docker-pull-config-json-file=/Users/helenedurand/localdev/kkp/kubermatic-ee-v2.20.2-darwin-amd64/docker-pull-secret/docker.json \
   -logtostderr \
   -v=4 # Log-level for the Kube dependencies. Increase up to 9 to get request-level logs.

@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DOCKER_REPO ?= "quay.io/kubermatic"
+#DOCKER_REPO ?= "quay.io/kubermatic"
+DOCKER_REPO ?= "quay.io/hdurand0710"
+TAG=4e2fb5e3080c893e0512715eb3c2d0f4d11604ee
 
 .PHONY: docker
 docker:

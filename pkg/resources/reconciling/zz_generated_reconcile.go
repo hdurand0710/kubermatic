@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	gatekeeperv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	appskubermaticv1 "k8c.io/kubermatic/v2/pkg/apis/apps.kubermatic/v1"
 	kubermaticv1 "k8c.io/kubermatic/v2/pkg/apis/kubermatic/v1"
@@ -1356,6 +1357,43 @@ func ReconcileKubeVirtV1VirtualMachineInstancePresets(ctx context.Context, named
 
 		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &kubevirtv1.VirtualMachineInstancePreset{}, false); err != nil {
 			return fmt.Errorf("failed to ensure VirtualMachineInstancePreset %s/%s: %w", namespace, name, err)
+		}
+	}
+
+	return nil
+}
+
+// NadV1NetworkAttachmentDefinitionCreator defines an interface to create/update NetworkAttachmentDefinitions
+type NadV1NetworkAttachmentDefinitionCreator = func(existing *nadv1.NetworkAttachmentDefinition) (*nadv1.NetworkAttachmentDefinition, error)
+
+// NamedNadV1NetworkAttachmentDefinitionCreatorGetter returns the name of the resource and the corresponding creator function
+type NamedNadV1NetworkAttachmentDefinitionCreatorGetter = func() (name string, create NadV1NetworkAttachmentDefinitionCreator)
+
+// NadV1NetworkAttachmentDefinitionObjectWrapper adds a wrapper so the NadV1NetworkAttachmentDefinitionCreator matches ObjectCreator.
+// This is needed as Go does not support function interface matching.
+func NadV1NetworkAttachmentDefinitionObjectWrapper(create NadV1NetworkAttachmentDefinitionCreator) ObjectCreator {
+	return func(existing ctrlruntimeclient.Object) (ctrlruntimeclient.Object, error) {
+		if existing != nil {
+			return create(existing.(*nadv1.NetworkAttachmentDefinition))
+		}
+		return create(&nadv1.NetworkAttachmentDefinition{})
+	}
+}
+
+// ReconcileNadV1NetworkAttachmentDefinitions will create and update the NadV1NetworkAttachmentDefinitions coming from the passed NadV1NetworkAttachmentDefinitionCreator slice
+func ReconcileNadV1NetworkAttachmentDefinitions(ctx context.Context, namedGetters []NamedNadV1NetworkAttachmentDefinitionCreatorGetter, namespace string, client ctrlruntimeclient.Client, objectModifiers ...ObjectModifier) error {
+	for _, get := range namedGetters {
+		name, create := get()
+		createObject := NadV1NetworkAttachmentDefinitionObjectWrapper(create)
+		createObject = createWithNamespace(createObject, namespace)
+		createObject = createWithName(createObject, name)
+
+		for _, objectModifier := range objectModifiers {
+			createObject = objectModifier(createObject)
+		}
+
+		if err := EnsureNamedObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, createObject, client, &nadv1.NetworkAttachmentDefinition{}, false); err != nil {
+			return fmt.Errorf("failed to ensure NetworkAttachmentDefinition %s/%s: %w", namespace, name, err)
 		}
 	}
 

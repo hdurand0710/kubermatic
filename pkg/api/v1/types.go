@@ -1901,6 +1901,12 @@ type KubevirtNodeSpec struct {
 	PodAntiAffinityPreset string `json:"podAntiAffinityPreset"`
 	// NodeAffinityPreset describes node affinity scheduling rules
 	NodeAffinityPreset NodeAffinityPreset `json:"nodeAffinityPreset"`
+	// AdditionalNetworks describes the additional networks
+	AdditionalNetworks []AdditionalNetwork `json:"additionalNetworks"`
+}
+
+type AdditionalNetwork struct {
+	Name string `json:"name"`
 }
 
 type SecondaryDisks struct {
@@ -1944,17 +1950,18 @@ func (spec *KubevirtNodeSpec) MarshalJSON() ([]byte, error) {
 	}
 
 	res := struct {
-		FlavorName                  string             `json:"flavorName"`
-		FlavorProfile               string             `json:"flavorProfile"`
-		CPUs                        string             `json:"cpus"`
-		Memory                      string             `json:"memory"`
-		PrimaryDiskOSImage          string             `json:"primaryDiskOSImage"`
-		PrimaryDiskStorageClassName string             `json:"primaryDiskStorageClassName"`
-		PrimaryDiskSize             string             `json:"primaryDiskSize"`
-		SecondaryDisks              []SecondaryDisks   `json:"secondaryDisks"`
-		PodAffinityPreset           string             `json:"podAffinityPreset"`
-		PodAntiAffinityPreset       string             `json:"podAntiAffinityPreset"`
-		NodeAffinityPreset          NodeAffinityPreset `json:"nodeAffinityPreset"`
+		FlavorName                  string              `json:"flavorName"`
+		FlavorProfile               string              `json:"flavorProfile"`
+		CPUs                        string              `json:"cpus"`
+		Memory                      string              `json:"memory"`
+		PrimaryDiskOSImage          string              `json:"primaryDiskOSImage"`
+		PrimaryDiskStorageClassName string              `json:"primaryDiskStorageClassName"`
+		PrimaryDiskSize             string              `json:"primaryDiskSize"`
+		SecondaryDisks              []SecondaryDisks    `json:"secondaryDisks"`
+		PodAffinityPreset           string              `json:"podAffinityPreset"`
+		PodAntiAffinityPreset       string              `json:"podAntiAffinityPreset"`
+		NodeAffinityPreset          NodeAffinityPreset  `json:"nodeAffinityPreset"`
+		AdditionalNetworks          []AdditionalNetwork `json:"additionalNetworks"`
 	}{
 		FlavorName:                  spec.FlavorName,
 		FlavorProfile:               spec.FlavorProfile,
@@ -1967,6 +1974,7 @@ func (spec *KubevirtNodeSpec) MarshalJSON() ([]byte, error) {
 		PodAffinityPreset:           spec.PodAffinityPreset,
 		PodAntiAffinityPreset:       spec.PodAntiAffinityPreset,
 		NodeAffinityPreset:          spec.NodeAffinityPreset,
+		AdditionalNetworks:          spec.AdditionalNetworks,
 	}
 
 	return json.Marshal(&res)

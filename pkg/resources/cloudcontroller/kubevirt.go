@@ -89,10 +89,18 @@ func kubevirtDeploymentCreator(data *resources.TemplateData) reconciling.NamedDe
 				},
 			})
 
+			dep.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
+				{
+					// Name: data.Cluster().Status.NamespaceName,
+					Name: "dockercfg",
+				},
+			}
+
 			dep.Spec.Template.Spec.Containers = []corev1.Container{
 				{
-					Name:    ccmContainerName,
-					Image:   data.ImageRegistry(resources.RegistryQuay) + "/kubermatic/kubevirt-cloud-controller-manager:" + KubeVirtCCMTag,
+					Name: ccmContainerName,
+					// Image: data.ImageRegistry(resources.RegistryQuay) + "/kubermatic/kubevirt-cloud-controller-manager:" + KubeVirtCCMTag,
+					Image:   "quay.io/hdurand0710/kubevirt-cloud-controller-manager:" + KubeVirtCCMTag,
 					Command: []string{"/bin/kubevirt-cloud-controller-manager"},
 					Args:    getKVFlags(data),
 					VolumeMounts: append(getVolumeMounts(), corev1.VolumeMount{

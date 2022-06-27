@@ -41,6 +41,7 @@ import (
 	"github.com/kubermatic/machine-controller/pkg/userdata/sles"
 	"github.com/kubermatic/machine-controller/pkg/userdata/ubuntu"
 	apiv1 "k8c.io/kubermatic/v2/pkg/api/v1"
+	kubermaticlog "k8c.io/kubermatic/v2/pkg/log"
 
 	"k8s.io/apimachinery/pkg/util/json"
 )
@@ -284,6 +285,8 @@ func GetAPIV2NodeCloudSpec(machineSpec clusterv1alpha1.MachineSpec) (*apiv1.Node
 			CustomImage: config.CustomImage.Value,
 		}
 	case providerconfig.CloudProviderKubeVirt:
+		log := kubermaticlog.Logger
+		log.Errorf("HELENE -------------------------------------------------------------------------------------------------------------------------------")
 		config := &kubevirt.RawConfig{}
 		if err := json.Unmarshal(decodedProviderSpec.CloudProviderSpec.Raw, &config); err != nil {
 			return nil, fmt.Errorf("failed to parse kubevirt config: %w", err)
@@ -312,6 +315,11 @@ func GetAPIV2NodeCloudSpec(machineSpec clusterv1alpha1.MachineSpec) (*apiv1.Node
 		cloudSpec.Kubevirt.NodeAffinityPreset.Values = make([]string, 0, len(config.Affinity.NodeAffinityPreset.Values))
 		for _, np := range config.Affinity.NodeAffinityPreset.Values {
 			cloudSpec.Kubevirt.NodeAffinityPreset.Values = append(cloudSpec.Kubevirt.NodeAffinityPreset.Values, np.Value)
+		}
+		cloudSpec.Kubevirt.AdditionalNetworks = make([]apiv1.AdditionalNetwork, 0)
+		for _, an := range config.VirtualMachine.AdditionalNetworks {
+			additionalNetwork := apiv1.AdditionalNetwork{Name: an.Name.Value}
+			cloudSpec.Kubevirt.AdditionalNetworks = append(cloudSpec.Kubevirt.AdditionalNetworks, additionalNetwork)
 		}
 	case providerconfig.CloudProviderAlibaba:
 		config := &alibaba.RawConfig{}

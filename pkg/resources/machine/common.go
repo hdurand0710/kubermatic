@@ -506,6 +506,13 @@ func getKubevirtProviderSpec(nodeSpec apiv1.NodeSpec, dc *kubermaticv1.Datacente
 	for _, val := range nodeSpec.Cloud.Kubevirt.NodeAffinityPreset.Values {
 		config.Affinity.NodeAffinityPreset.Values = append(config.Affinity.NodeAffinityPreset.Values, providerconfig.ConfigVarString{Value: val})
 	}
+	config.VirtualMachine.AdditionalNetworks = make([]kubevirt.AdditionalNetwork, 0, len(nodeSpec.Cloud.Kubevirt.AdditionalNetworks))
+	for _, val := range nodeSpec.Cloud.Kubevirt.AdditionalNetworks {
+		an := kubevirt.AdditionalNetwork{
+			Name: providerconfig.ConfigVarString{Value: val.Name},
+		}
+		config.VirtualMachine.AdditionalNetworks = append(config.VirtualMachine.AdditionalNetworks, an)
+	}
 
 	ext := &runtime.RawExtension{}
 	b, err := json.Marshal(config)
